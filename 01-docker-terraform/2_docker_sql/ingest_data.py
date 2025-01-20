@@ -8,7 +8,9 @@ import gzip
 import time
 
 def download_unzip_csv(csv_url, csv_output_file):
-
+    """
+    Download and unzip the CSV file
+    """
     unzipped_csv_file = csv_url.split("/")[-1]
 
     file_extension = unzipped_csv_file.split(".")[-1]
@@ -34,35 +36,14 @@ def download_unzip_csv(csv_url, csv_output_file):
                 os.remove(f"../{unzipped_csv_file}")
     else:
         raise Exception("File extension not supported. Please provide a .csv or .csv.gz file")
-
-def main(params):
-    user = params.user
-    password = params.password
-    host = params.host
-    port = params.port
-    db = params.db
-    table_name = params.table_name
-    csv_url = params.csv_url
-    csv_output_file = "yellow_tripdata_2021-01.csv"
     
 
-    # download the csv file
-    download_unzip_csv(csv_url, csv_output_file)
-
-    # ## Connect to Postgres Database via SQLAlchemy
-    try:
-        engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{db}")
-        engine.connect()
-    except Exception as e:
-        print(f"Error connecting to database: {e}")
-        return
-
-
-
-
+def ingest_data(engine, main_table_name, zones_table_name, csv_output_file):
+    """
+    Ingest data from CSV to Postgres
+    """
     # ## Load Dataframe from CSV
     df = pd.read_csv(f"../{csv_output_file}", nrows=100)
-
 
 
     # ## Load Dataframe from CSV In Batches
@@ -78,11 +59,11 @@ def main(params):
 
 
     # ## Get Schema for CREATE TABLE (DDL)
-    print(pd.io.sql.get_schema(df, name=f"{table_name}", con=engine))
+    print(pd.io.sql.get_schema(df, name=f"{main_table_name}", con=engine))
 
 
     # ## Create Table with Columns But No Data (using `head(n=0)` to avoid inserting data)
-    df.head(n=0).to_sql(name=f"{table_name}", con=engine, if_exists="replace")
+    df.head(n=0).to_sql(name=f"{main_table_name}", con=engine, if_exists="replace")
 
     # ## For Each 100K Chunk of Data, Append To Table
     for i, data_chunk in enumerate(df_iter, 1):
@@ -93,7 +74,7 @@ def main(params):
         data_chunk["tpep_dropoff_datetime"] = pd.to_datetime(data_chunk["tpep_dropoff_datetime"])
 
         # append the data to the table
-        data_chunk.to_sql(name=f"{table_name}", con=engine, if_exists="append")
+        data_chunk.to_sql(name=f"{main_table_name}", con=engine, if_exists="append")
 
         time_end = time.time()
 
@@ -102,19 +83,54 @@ def main(params):
         print(f"Data chunk {i} appended to table. Took {benchmark_time} seconds")
 
 
-    # ## View Table With Pandas
-    print("TOTAL RECORDS:", pd.read_sql(f"SELECT COUNT(*) FROM {table_name}", con=engine))
+    # ## Add and Ingest Zones Table
+    # *This table contains the mapping of location IDs to boroughs and zones*
+    df_zones = pd.read_csv("../taxi_zone_lookup.csv")
+    df_zones.to_sql(name=f"{zones_table_name}", con=engine, if_exists="replace")
 
+
+def main(params):
+    user = params.user
+    password = params.password
+    host = params.host
+    port = params.port
+    db = params.db
+    main_table_name = params.table_name
+    zones_table_name = "zones"
+    csv_url = params.csv_url
+    csv_output_file = "yellow_tripdata_2021-01.csv"
+
+
+    # ## Connect to Postgres Database via SQLAlchemy
+    try:
+        engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{db}")
+        engine.connect()
+    except Exception as e:
+        print(f"Error connecting to database: {e}")
+        return
+    
+    # ## Download the CSV File
+    download_unzip_csv(csv_url, csv_output_file)
+
+    
+    # ## Ingest the Data To Postgres
+    ingest_data(engine, user, password, host, port, db, main_table_name, csv_output_file)
+
+
+    # ## Verify Data Ingestion
     # *equivalent to `\dt`*
-    # query = """
-    #     SELECT * 
-    #     FROM pg_catalog.pg_tables
-    #     WHERE schemaname != 'pg_catalog' AND 
-    #         schemaname != 'information_schema';
-    # """
-    # pd.read_sql(query, con=engine)
+    query = """
+        SELECT * 
+        FROM pg_catalog.pg_tables
+        WHERE schemaname != 'pg_catalog' AND 
+            schemaname != 'information_schema';
+    """
+    print(f"Tables in {db} database:\n", pd.read_sql(query, con=engine))
 
-    # pd.read_sql(f"SELECT * FROM {table_name} LIMIT 10", con=engine)
+    print(f"TOTAL RECORDS IN {main_table_name}:", pd.read_sql(f"SELECT COUNT(*) FROM {main_table_name}", con=engine))
+    print(f"TOTAL RECORDS IN {zones_table_name}:", pd.read_sql(f"SELECT COUNT(*) FROM {zones_table_name}", con=engine))
+
+    
 
 
 if __name__ == "__main__":
