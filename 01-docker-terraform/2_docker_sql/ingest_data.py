@@ -85,7 +85,7 @@ def ingest_data(engine, main_table_name, zones_table_name, csv_output_file):
 
     # ## Add and Ingest Zones Table
     # *This table contains the mapping of location IDs to boroughs and zones*
-    df_zones = pd.read_csv("../taxi_zone_lookup.csv")
+    df_zones = pd.read_csv("https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv")
     df_zones.to_sql(name=f"{zones_table_name}", con=engine, if_exists="replace")
 
 
