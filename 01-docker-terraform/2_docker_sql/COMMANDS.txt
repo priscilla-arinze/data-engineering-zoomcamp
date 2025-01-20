@@ -89,3 +89,10 @@ docker run -it --network=2_docker_sql_default `
   --db=ny_taxi `
   --table_name=yellow_taxi_trips `
   --csv_url=$URL
+
+
+# 11. UPDATE PERMISSIONS ON BIND MOUNT FOLDERS
+sudo chown -R 5050:5050 ny_taxi_postgres_data
+sudo chmod -R 775 ny_taxi_postgres_data
+sudo chown -R 5050:5050 ny_taxi_postgres_pgadmin_data
+sudo chmod -R 775 ny_taxi_postgres_pgadmin_data
