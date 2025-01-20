@@ -114,7 +114,7 @@ def main(params):
 
     
     # ## Ingest the Data To Postgres
-    ingest_data(engine, user, password, host, port, db, main_table_name, csv_output_file)
+    ingest_data(engine, main_table_name, zones_table_name, csv_output_file)
 
 
     # ## Verify Data Ingestion
