@@ -39,11 +39,11 @@ gsutil 5.5
 ### Google Cloud SDK Authentication 
 
 * Now create a service account and generate keys like shown in the videos
-* Download the key and put it to some location, e.g. `.gc/ny-rides.json`
+* Download the key and put it to some location, e.g. `.gcp_keys/my-creds.json`
 * Set `GOOGLE_APPLICATION_CREDENTIALS` to point to the file
 
 ```bash
-export GOOGLE_APPLICATION_CREDENTIALS=~/.gc/ny-rides.json
+export GOOGLE_APPLICATION_CREDENTIALS=~/.gcp_keys/my-creds.json
 ```
 
 Now authenticate: 
